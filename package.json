@@ -1,0 +1,36 @@
+{
+  "name": "route53-dyndns",
+  "version": "0.0.1",
+  "description": "Dynamic DNS for Route53 via dyndns2 protocol",
+  "main": "index.js",
+  "scripts": {
+    "test": "gulp test"
+  },
+  "keywords": [
+    "route53",
+    "dyndns",
+    "dyndns2"
+  ],
+  "author": "Rich Tebb",
+  "license": "ISC",
+  "dependencies": {
+    "aws-sdk": "^2.296.0",
+    "http-errors": "^1.7.0",
+    "lambda-log": "^2.0.0"
+  },
+  "devDependencies": {
+    "del": "^3.0.0",
+    "eslint": "^5.5.0",
+    "gulp": "github:gulpjs/gulp#4.0",
+    "gulp-changed": "^3.2.0",
+    "gulp-install": "^1.1.0",
+    "gulp-plumber": "^1.2.0",
+    "gulp-tape": "^1.0.0",
+    "gulp-zip": "^4.2.0",
+    "sinon": "^6.2.0",
+    "tap-colorize": "^1.2.0",
+    "tap-simple": "^0.3.1",
+    "tape-async": "^2.3.0",
+    "tape-catch": "^1.0.6"
+  }
+}

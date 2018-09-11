@@ -1,0 +1,17 @@
+
+# Target output folder
+dist
+package
+
+# NPM stuff
+node_modules
+email_lambda.zip
+
+# terraform stuff
+terraform.tfstate
+terraform.tfstate.backup
+.terraform
+.terraform.tfstate.lock.info
+
+# Output files
+api.json

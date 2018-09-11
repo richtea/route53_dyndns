@@ -1,0 +1,13 @@
+{
+    "typescript.suggestionActions.enabled": false,
+    "typescript.format.enable": false,
+    "typescript.validate.enable": false,
+    "files.exclude": {
+        "terraform.tfstate*": true,
+        ".terraform*": true,
+        "node_modules": true,
+        "package": true,
+        "dist": true
+    },
+    "git.ignoreLimitWarning": true
+}
