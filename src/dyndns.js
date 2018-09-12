@@ -1,15 +1,17 @@
 'use strict';
 const log = require('lambda-log');
+const AWS = require('aws-sdk');
 
 /*
 const util = require('util');
-const AWS = require('aws-sdk');
+
 */
 
 const UPDATE_RESPONSES = {
-    GOOD: 'Good', // Updated successfully
-    NOCHG: 'Not changed', // No change to the ip address was required
-    NOHOST: 'The specified host does not exist' // Host not found
+    GOOD: 'good',       // Updated successfully
+    NOCHG: 'nochg',     // No change to the ip address was required
+    NOHOST: 'nohost',   // Host not found
+    NOTFQDN: 'notfqdn'  // Not a valid FQDN
 };
 
 class DynDns {
@@ -18,14 +20,69 @@ class DynDns {
         // no functions etc. 
         this._config = JSON.parse(JSON.stringify(config));
         log.debug('DynDns initialised', this._config);
+
+        if (this._config.region) {
+            AWS.config.update({region: this._config.region}); // e.g. eu-west-1
+        }   
     }
 
     static get UPDATE_RESPONSES() {
         return UPDATE_RESPONSES;
     }
 
+    /**
+     * Initializes the class. Call once before calling {@linkcode DynDns#update}.
+     * 
+     */
+    async init() {
+        this._zones  = await this.listHostedZones();
+    }
+
+    /**
+     * Retrieves a list of all hosted zones for the current AWS context.
+     * 
+     * @returns {Array} An array of configuration objects as returned by 
+     *      [ListHostedZones]{@link https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/Route53.html#listHostedZones-property}
+     */
+    async listHostedZones() {
+        let route53 = new AWS.Route53();
+        let zones = [], marker, ended = false;
+
+        return new Promise(async (resolve, reject) => {
+            do {
+                var params = {
+                    Marker: marker,
+                    MaxItems: '100'
+                };
+                let request = route53.listHostedZones(params);
+                let data;
+                try {
+                    data = await request.promise();
+                }
+                catch (ex) {
+                    reject(ex);
+                    return;
+                }
+
+                zones = zones.concat(data.HostedZones);
+                marker = data.NextMarker;
+                ended = !data.IsTruncated;
+
+            } while (!ended);
+
+            resolve(zones);
+        });
+    }
+
+    /**
+     * Updates the specified host's DNS zone file entry with the specified IP address.
+     * 
+     * @param {string} host The host name to update.
+     * @param {string} ip The IP address to assign to the host.
+     */
     update(host, ip) {
-        
+        log.debug(`Update called for host ${host} with IP ${ip}`, { host, ip });
+
     }
 
 
@@ -38,8 +95,6 @@ AWS.config.update(
     }
 );
 
-//Create required AWS-SDK objects
-var route53 = new AWS.Route53();
 
 //Update AWS Route53 based on new IP address
 var UpdateEntryInRoute53 = function () {

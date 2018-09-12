@@ -14,8 +14,8 @@
   "author": "Rich Tebb",
   "license": "ISC",
   "dependencies": {
-    "aws-sdk": "^2.296.0",
-    "http-errors": "^1.7.0",
+    "aws-sdk": "^2.313.0",
+    "http-errors": "^1.7.1",
     "lambda-log": "^2.0.0"
   },
   "devDependencies": {
