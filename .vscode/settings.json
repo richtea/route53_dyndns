@@ -6,7 +6,8 @@
         "terraform.tfstate*": true,
         ".terraform*": true,
         "node_modules": true,
-        "package": true,
+        "tmp": true,
+        "zip": true,
         "dist": true
     },
     "git.ignoreLimitWarning": true

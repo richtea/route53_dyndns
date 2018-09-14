@@ -35,21 +35,46 @@ const argv = require('yargs')
     .argv;
 
 var paths = {
-    src_files: [
-        './src/**/*',
-        '!./src/**/*.spec.js'
-    ],
-    test_files: [
-        './src/**/*.spec.js'
-    ],
-    install_packages: ['./package.json'],
-    package_files: ['./dist/**/*'],
-    dest: './dist',
-    package: './package',
-    package_name: 'dyndns_lambda.zip'
+    zip: {
+        src: 'dist/**/*',
+        dest: 'zip/',
+        name: 'dyndns_lambda.zip'
+    },
+    dist: 'dist/',
+    js: {
+        src: 'src/**/*.js',
+        test: 'src/**/*.spec.js',
+        dest: 'dist/',
+        clean: [ 'dist/**/*.js', '!dist/node_modules/**/*' ]
+    },
+    npm: {
+        src: ['package.json', 'package-lock.json'],
+        package: 'package.json',
+        dest: 'dist/',
+        cache: 'tmp/npmcache/',
+        clean: [ 'dist/package.json', 'dist/package-lock.json', '/dist/node_modules', 'tmp/npmcache' ]
+    }
 };
 
-function unitTest() {
+let task;
+gulp.task('clean:src', () => {
+    return del(paths.js.clean);
+});
+
+gulp.task('clean:npm', () => {
+    return del([ paths.dist + 'node_modules', paths.npm.cache ]);
+});
+
+gulp.task('clean:zip', () => {
+    return del([ paths.zip.dest ]);
+});
+
+gulp.task('clean', gulp.parallel('clean:src', 'clean:npm', 'clean:zip'));
+task = gulp.task('clean');
+task.description = 'Cleans the output folders.';
+
+
+gulp.task('test:unit', () => {
     let reporter;  
 
     if (argv.nocolor) {
@@ -60,44 +85,61 @@ function unitTest() {
 
     reporter.pipe(process.stdout);
 
-    return gulp.src(paths.test_files)
+    return gulp.src(paths.js.test)
         .pipe(plumber({errorHandler: () => {}}))
         .pipe(tape( { outputStream: reporter }));
-}
-unitTest.description = 'Runs unit tests';
+});
+task = gulp.task('test:unit');
+task.description = 'Runs unit tests';
 
-function clean() {
-    // You can use multiple globbing patterns as you would with `gulp.src`,
-    // for example if you are using del 2.0 or above, return its promise
-    return del([paths.dest + '/**/*', paths.package +'/**/*']);
-}
-clean.description = 'Cleans the packaging and output directories of all files';
 
-function src_files() {
-    return gulp.src(paths.src_files, 
-        {
-            base: './src'
-        })
-        .pipe(changed(paths.dest))
-        .pipe(gulp.dest(paths.dest));
+function copyJs() {
+    return gulp.src([ paths.js.src, '!' + paths.js.test ])
+        .pipe(gulp.dest(paths.js.dest));
 }
-src_files.description = 'Moves source files to the packaging directory';
+copyJs.description = 'Copies the JS files into the destination folder.';
 
-function node_modules() {
-    return gulp.src(paths.install_packages)
-        .pipe(gulp.dest(paths.dest))
-        .pipe(install({
-            production: true
-        }));
-}
-node_modules.description = 'Installs the NPM production dependencies into the packaging directory';
+gulp.task('npm:copy-package-def', () => {
+    // Only copies the package file if it has changed, to preserve last-modified timestamp
+    return gulp.src(paths.npm.src)
+        .pipe(changed(paths.npm.dest))
+        .pipe(gulp.dest(paths.npm.dest));
+});
+task = gulp.task('npm:copy-package-def');
+task.description = 'Copies the NPM package file into the destination folder.';
 
-function build_package() {
-    return gulp.src(paths.package_files)
-        .pipe(zip(paths.package_name))
-        .pipe(gulp.dest(paths.package));
-}
-build_package.description = 'Builds a package for deployment';
+gulp.task('npm:install-packages', () => {
+    // Copies dummy version of the package file into a cache folder
+    // so that we can check whether it has changed and therefore whether
+    // we need to re-run the install
+    return gulp.src(paths.npm.dest + paths.npm.package)
+        .pipe(changed(paths.npm.cache))
+        .pipe(install({ production: true }))
+        .pipe(gulp.dest(paths.npm.cache));
+});
+task = gulp.task('npm:install-packages');
+task.description = 'Installs the NPM packages into the destination folder.';
+
+gulp.task('npm', gulp.series('npm:copy-package-def', 'npm:install-packages'));
+task = gulp.task('npm');
+task.description = 'Installs the NPM files into the destination folder.';
+
+gulp.task('create-zip', () => {
+    return gulp.src(paths.zip.src)
+        .pipe(zip(paths.zip.name))
+        .pipe(gulp.dest(paths.zip.dest));
+});
+task = gulp.task('npm');
+task.description = 'Installs the NPM files into the destination folder.';
+
+gulp.task('build:src', gulp.series('clean:src', copyJs));
+
+gulp.task('build', gulp.series(gulp.parallel('build:src', 'npm'), 'create-zip'));
+task = gulp.task('build');
+task.description = 'Builds the distribution files';
+
+gulp.task('fullbuild', gulp.series('clean', 'build'));
+
 
 function deploy(done) {
     let cmd = './tf.sh -y -c apply -s ' + argv.stack;
@@ -114,23 +156,10 @@ function deploy(done) {
 }
 deploy.description = 'Deploys to an AWS stack by using Terraform';
 
-var build = gulp.series(
-    gulp.parallel(src_files, node_modules),
-    build_package);
-build.description = 'Performs a build to generate the output package for deployment';
-
-var fullbuild = gulp.series(
-    clean,
-    build);
-fullbuild.description = 'Performs a full clean and build';
-
-gulp.task('unit-test', unitTest);
-gulp.task('fullbuild', fullbuild);
-gulp.task('build', build);
-
+gulp.task('test', gulp.series('test:unit'));
 gulp.task('deploy', deploy);
 
 /*
  * Define default task that can be called by just running `gulp` from cli
  */
-gulp.task('default', build);
+gulp.task('default', gulp.series('build'));

@@ -12,9 +12,8 @@ async function handler (event, context, callback) {
     try {
         if (utils.idx(event, _ => _.stageVariables.LogDebug)) {
             log.options.debug = true;
+            log.debug('Debug log enabled');
         }
-
-        log.info('Hello, world! We are in AWS_REGION ' + process.env.AWS_REGION);
         
         const deps = await module.exports.deps(event);
 
@@ -35,7 +34,7 @@ async function handler (event, context, callback) {
         }
 
         if (ex instanceof createError.Unauthorized) {
-            err.headers = { 'WWW-Authenticate': 'Basic' };
+            err.headers = { 'WWW-Authenticate': 'Basic realm="DynDns API"' };
         }
 
         callback(null, err);

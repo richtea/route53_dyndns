@@ -1,11 +1,11 @@
 
 # Target output folder
 dist
-package
+zip
+tmp
 
 # NPM stuff
 node_modules
-email_lambda.zip
 
 # terraform stuff
 terraform.tfstate
