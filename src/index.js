@@ -2,14 +2,21 @@
 const log = require('lambda-log');
 const createError = require('http-errors');
 
+const utils = require('./utils');
 const DynDns = require('./dyndns');
+const getSsmParams = require('./ssm-params');
+const Authorizer = require('./authorizer');
 
 
 async function handler (event, context, callback) {
     try {
+        if (utils.idx(event, _ => _.stageVariables.LogDebug)) {
+            log.options.debug = true;
+        }
+
         log.info('Hello, world! We are in AWS_REGION ' + process.env.AWS_REGION);
         
-        const deps = await module.exports.deps();
+        const deps = await module.exports.deps(event);
 
         const response = await handleEvent(event, deps);
         callback(null, response);
@@ -27,6 +34,9 @@ async function handler (event, context, callback) {
             err.body = ex.message;
         }
 
+        if (ex instanceof createError.Unauthorized) {
+            err.headers = { 'WWW-Authenticate': 'Basic' };
+        }
 
         callback(null, err);
     }
@@ -41,10 +51,23 @@ async function handler (event, context, callback) {
  * 
  * @returns {Object} An object containing the initialized dependencies.
  */
-async function initializeDependencies() {
-    let config = { region: process.env.AWS_REGION };
-    var dd = new DynDns(config);
-    return dd.init().then(() => { return { DynDns: dd }; });
+async function initializeDependencies(event) {
+    let ddconfig = { region: process.env.AWS_REGION };
+    let dd = new DynDns(ddconfig);
+    let ddinit = dd.init();
+
+    let usernameParm = utils.idx(event, _ => _.stageVariables.UsernameParm) || 'dyndns-username';
+    let passwordParm = utils.idx(event, _ => _.stageVariables.PasswordParm) || 'dyndns-password';
+    log.debug(`Using SSM parameters (${usernameParm}) for username and (${passwordParm}) for password`);
+
+    let getParms = getSsmParams(usernameParm, passwordParm);
+
+    let [, parms] = await Promise.all([ddinit, getParms]);
+
+    let azconfig = {username: parms[usernameParm], password: parms[passwordParm] };
+    let az = new Authorizer(azconfig);
+
+    return { DynDns: dd, Authorizer: az };
 }
 
 /**
@@ -53,13 +76,13 @@ async function initializeDependencies() {
  * @param {Object} event The AWS Lambda event.
  * @returns {Object} An object containing hostnames and myip properties.
  */
-function getParams(event) {
-    let hostname = idx(event, _ => _.queryStringParameters.hostname);
+function getEventParams(event) {
+    let hostname = utils.idx(event, _ => _.queryStringParameters.hostname);
     if (!hostname) {
         throw createError(400, 'notfqdn');
     }
 
-    let myip = idx(event, _ => _.queryStringParameters.myip);
+    let myip = utils.idx(event, _ => _.queryStringParameters.myip);
     if (!myip) {
         throw createError(400, 'fatal Parameter myip not specified');
     }
@@ -74,14 +97,6 @@ function getParams(event) {
     return { hostnames, myip };
 }
 
-function idx(input, accessor) {
-    try {
-        return accessor(input);
-    } catch (e) {
-        return undefined;
-    }
-}
-
 /**
  * Handles a dyndns update event.
  * 
@@ -91,7 +106,17 @@ function idx(input, accessor) {
  */
 async function handleEvent(event, deps) {
 
-    let { hostnames, myip } = getParams(event);
+    // If no auth header, throw
+    if (!utils.idx(event, _ => _.headers.Authorization)) {
+        throw createError(401, 'Unauthorized');
+    }
+
+    // Authorize user from header
+    if (!deps.Authorizer.authorize(event)) {
+        throw createError(403, 'Forbidden');
+    }
+
+    let { hostnames, myip } = getEventParams(event);
 
     let results = new Map();
     

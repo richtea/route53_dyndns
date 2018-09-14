@@ -4,9 +4,7 @@ const test = require('tape-async');
 const log = require('lambda-log');
 
 const DynDns = require('./dyndns');
-
-// var credentials = new AWS.SharedIniFileCredentials({profile: 'dyndns'});
-// AWS.config.credentials = credentials;
+const getSsmParams = require('./ssm-params');
 
 // Next statements are to ensure that all log messages are logged to stdout via console.log
 // Default is to log error and warn to stderr
@@ -22,6 +20,13 @@ test('listHostedZones returns full list', async (t) => {
     t.equal(zones.length, 12, 'Hosted zones count');
     t.end();
 });
+
+test('getSsmParams returns values', async (t) => {
+    let parms = await getSsmParams('dyndns-username', 'dyndns-password');
+    t.equal(parms['dyndns-username'], 'dnsuser', 'Username');
+    t.end();
+});
+
 
 log.off('log', listener);
 

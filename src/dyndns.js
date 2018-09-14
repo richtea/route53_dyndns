@@ -80,11 +80,21 @@ class DynDns {
      * @param {string} host The host name to update.
      * @param {string} ip The IP address to assign to the host.
      */
-    update(host, ip) {
+    async update(host, ip) {
         log.debug(`Update called for host ${host} with IP ${ip}`, { host, ip });
 
+        // Find hosted zone that matches host
+
+        // Retrieve resource records for hosted zone
+
+        // Find resource record for host - needs to be an existing A record
+
+        // If IP hasn't changed then return NOCHG
+
+        // Update IP address and return GOOD
     }
 
+}
 
 /*
 AWS.config.update(
@@ -142,7 +152,5 @@ var UpdateEntryInRoute53 = function () {
 
 };
 */
-
-}
 
 module.exports = DynDns;
