@@ -26,7 +26,7 @@ const defaultEvent = {
 };
 
 var defaultAuthorizer = new Authorizer();
-sinon.stub(defaultAuthorizer, 'authorize').callsFake(() => true );
+sinon.stub(defaultAuthorizer, 'authorize').callsFake(() => true);
 
 // Default dependencies
 var defaultDeps = { Authorizer: defaultAuthorizer };
@@ -35,7 +35,7 @@ test('missing hostname parameter returns notfqdn error', async (t) => {
     let dyndns = new DynDns();
     sinon.stub(dyndns, 'update').callsFake(() => { return Promise.resolve(DynDns.UPDATE_RESPONSES.GOOD); });
 
-    const deps = Object.assign( { DynDns: dyndns }, defaultDeps );
+    const deps = Object.assign({ DynDns: dyndns }, defaultDeps);
     sut.deps = () => { return Promise.resolve(deps); };
 
     const event = {
@@ -65,9 +65,9 @@ test('missing hostname parameter returns notfqdn error', async (t) => {
 
 test('update on changed host returns good result', async (t) => {
     let dyndns = new DynDns();
-    sinon.stub(dyndns, 'update').callsFake(() => { return Promise.resolve(DynDns.UPDATE_RESPONSES.GOOD); });
+    sinon.stub(dyndns, 'update').callsFake(() => { return Promise.resolve(`${DynDns.UPDATE_RESPONSES.GOOD} 172.168.2.3`); });
 
-    const deps = Object.assign( { DynDns: dyndns }, defaultDeps );
+    const deps = Object.assign({ DynDns: dyndns }, defaultDeps);
     sut.deps = () => { return Promise.resolve(deps); };
 
     let callback = sinon.spy();
@@ -89,7 +89,7 @@ test('update on unchanged host returns nochg result', async (t) => {
     let dyndns = new DynDns();
     sinon.stub(dyndns, 'update').callsFake(() => { return Promise.resolve(DynDns.UPDATE_RESPONSES.NOCHG); });
 
-    const deps = Object.assign( { DynDns: dyndns }, defaultDeps );
+    const deps = Object.assign({ DynDns: dyndns }, defaultDeps);
     sut.deps = () => { return Promise.resolve(deps); };
 
     let callback = sinon.spy();
@@ -110,7 +110,7 @@ test('update on invalid FQDN host returns notfqdn result', async (t) => {
     let dyndns = new DynDns();
     sinon.stub(dyndns, 'update').callsFake(() => { return Promise.resolve(DynDns.UPDATE_RESPONSES.NOCHG); });
 
-    const deps = Object.assign( { DynDns: dyndns }, defaultDeps );
+    const deps = Object.assign({ DynDns: dyndns }, defaultDeps);
     sut.deps = () => { return Promise.resolve(deps); };
 
     const event = {
@@ -139,9 +139,9 @@ test('update on invalid FQDN host returns notfqdn result', async (t) => {
 
 test('update on multiple hosts returns multiple results', async (t) => {
     let dyndns = new DynDns();
-    sinon.stub(dyndns, 'update').callsFake(() => { return Promise.resolve(DynDns.UPDATE_RESPONSES.GOOD); });
+    sinon.stub(dyndns, 'update').callsFake(() => { return Promise.resolve(`${DynDns.UPDATE_RESPONSES.GOOD} 172.168.2.3`); });
 
-    const deps = Object.assign( { DynDns: dyndns }, defaultDeps );
+    const deps = Object.assign({ DynDns: dyndns }, defaultDeps);
     sut.deps = () => { return Promise.resolve(deps); };
 
     const event = {

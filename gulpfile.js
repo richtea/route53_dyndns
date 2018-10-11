@@ -9,7 +9,7 @@ const cp = require('child_process');
 const tape = require('gulp-tape');
 const plumber = require('gulp-plumber');
 const tapColorize = require('tap-colorize');
-const tapSimple = require('tap-simple');
+const tapJson = require('tap-json');
 
 // Support command-line arg that specifies which stack to deploy, for the deploy task
 const argv = require('yargs')
@@ -73,12 +73,11 @@ gulp.task('clean', gulp.parallel('clean:src', 'clean:npm', 'clean:zip'));
 task = gulp.task('clean');
 task.description = 'Cleans the output folders.';
 
-
 gulp.task('test:unit', () => {
-    let reporter;  
+    let reporter;
 
     if (argv.nocolor) {
-        reporter = tapSimple();
+        reporter = tapJson();
     } else {
         reporter = tapColorize();
     }
@@ -86,12 +85,11 @@ gulp.task('test:unit', () => {
     reporter.pipe(process.stdout);
 
     return gulp.src(paths.js.test)
-        .pipe(plumber({errorHandler: () => {}}))
-        .pipe(tape( { outputStream: reporter }));
+        .pipe(plumber({ errorHandler: () => {} }))
+        .pipe(tape({ outputStream: reporter }));
 });
 task = gulp.task('test:unit');
 task.description = 'Runs unit tests';
-
 
 function copyJs() {
     return gulp.src([ paths.js.src, '!' + paths.js.test ])
@@ -139,7 +137,6 @@ task = gulp.task('build');
 task.description = 'Builds the distribution files';
 
 gulp.task('fullbuild', gulp.series('clean', 'build'));
-
 
 function deploy(done) {
     let cmd = './tf.sh -y -c apply -s ' + argv.stack;

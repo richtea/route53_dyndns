@@ -15,3 +15,6 @@ Stage variables
 - UsernameParm
 - PasswordParm
 - LogDebug
+
+https://stackoverflow.com/questions/31039948/configuring-region-in-node-js-aws-sdk
+https://stackoverflow.com/a/46250457/260213

@@ -8,22 +8,24 @@ const util = require('util');
 */
 
 const UPDATE_RESPONSES = {
-    GOOD: 'good',       // Updated successfully
-    NOCHG: 'nochg',     // No change to the ip address was required
-    NOHOST: 'nohost',   // Host not found
-    NOTFQDN: 'notfqdn'  // Not a valid FQDN
+    GOOD: 'good', // Updated successfully
+    NOCHG: 'nochg', // No change to the ip address was required
+    NOHOST: 'nohost', // Host not found
+    NOTFQDN: 'notfqdn', // Not a valid FQDN
+    DNSERROR: 'dnserror', // Error updating AWS
+    PANIC: '911' // General error
 };
 
 class DynDns {
     constructor(config = {}) {
         // Make a deep copy of the config object - asssumes it is simple JS object with
-        // no functions etc. 
+        // no functions etc.
         this._config = JSON.parse(JSON.stringify(config));
-        log.debug('DynDns initialised', this._config);
+        log.debug('DynDns instantiated', this._config);
 
         if (this._config.region) {
-            AWS.config.update({region: this._config.region}); // e.g. eu-west-1
-        }   
+            AWS.config.update({ region: this._config.region }); // e.g. eu-west-1
+        }
     }
 
     static get UPDATE_RESPONSES() {
@@ -32,25 +34,28 @@ class DynDns {
 
     /**
      * Initializes the class. Call once before calling {@linkcode DynDns#update}.
-     * 
+     *
      */
     async init() {
-        this._zones  = await this.listHostedZones();
+        this._zones = await this.listHostedZones();
+        log.debug('DynDns initialised');
     }
 
     /**
      * Retrieves a list of all hosted zones for the current AWS context.
-     * 
-     * @returns {Array} An array of configuration objects as returned by 
+     *
+     * @returns {Array} An array of configuration objects as returned by
      *      [ListHostedZones]{@link https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/Route53.html#listHostedZones-property}
      */
     async listHostedZones() {
         let route53 = new AWS.Route53();
-        let zones = [], marker, ended = false;
+        let zones = [];
+        let marker;
+        let ended = false;
 
         return new Promise(async (resolve, reject) => {
             do {
-                var params = {
+                let params = {
                     Marker: marker,
                     MaxItems: '100'
                 };
@@ -58,8 +63,7 @@ class DynDns {
                 let data;
                 try {
                     data = await request.promise();
-                }
-                catch (ex) {
+                } catch (ex) {
                     reject(ex);
                     return;
                 }
@@ -67,7 +71,6 @@ class DynDns {
                 zones = zones.concat(data.HostedZones);
                 marker = data.NextMarker;
                 ended = !data.IsTruncated;
-
             } while (!ended);
 
             resolve(zones);
@@ -76,81 +79,144 @@ class DynDns {
 
     /**
      * Updates the specified host's DNS zone file entry with the specified IP address.
-     * 
-     * @param {string} host The host name to update.
+     *
+     * @param {string} hostName The host name to update.
      * @param {string} ip The IP address to assign to the host.
      */
-    async update(host, ip) {
-        log.debug(`Update called for host ${host} with IP ${ip}`, { host, ip });
+    async update(hostName, ip) {
+        log.debug(`update: called for host ${hostName} with IP ${ip}`, { hostName, ip });
+
+        // AWS always maintains trailing dot
+        if (!hostName.endsWith('.')) {
+            hostName += '.';
+        }
 
         // Find hosted zone that matches host
+        let zone = this.findHostedZone(hostName);
+        if (!zone) {
+            log.info(`update: zone not found for host '${hostName}'`);
+            return UPDATE_RESPONSES.NOHOST;
+        }
 
-        // Retrieve resource records for hosted zone
+        // Retrieve resource record set for host
+        let result = await this.getResourceRecordSetForHost(zone.Id, hostName);
 
-        // Find resource record for host - needs to be an existing A record
+        if (result.err) {
+            log.info(`update: error reading 'A' record for '${hostName}': '${result.err}'`);
+            return UPDATE_RESPONSES.NOHOST;
+        }
 
         // If IP hasn't changed then return NOCHG
+        let currentIp = result.data.ResourceRecords[0].Value;
+        if (currentIp === ip) {
+            log.info(`update: no change required for '${hostName}', current IP is '${currentIp}'`);
+            return `${UPDATE_RESPONSES.NOCHG} ${currentIp}`;
+        }
 
         // Update IP address and return GOOD
+        let batchComment = `Updating IP in zone ${zone.Id}: changing ${hostName} from ${currentIp} to ${ip}`;
+        let ttl = result.data.TTL;
+
+        let rc;
+        log.info(`update: ${batchComment}`);
+        try {
+            await this.updateDnsRecord(zone.Id, hostName, ip, ttl, batchComment);
+            log.info(`update: DNS record for '${hostName} updated to ${ip}'`);
+            rc = `${UPDATE_RESPONSES.GOOD} ${ip}`;
+        } catch (ex) {
+            log.error(`Error calling AWS to update DNS record: ${ex.messsage}`);
+            log.info(ex);
+            rc = `${UPDATE_RESPONSES.DNSERROR}`;
+        }
+
+        return rc;
     }
 
-}
+    findHostedZone(host) {
+        log.debug(`findHostedZone: looking for ${host}`);
 
-/*
-AWS.config.update(
-    {
-        region: AWS_REGION,
-        accessKeyId: AWS_ACCESS_KEY_ID,
-        secretAccessKey: AWS_SECRET_ACCESS_KEY
+        return this._zones.find(z => {
+            return host.endsWith(z.Name);
+        });
     }
-);
 
+    /**
+     * Gets the DNS record set for the specified host name within a hosted zone.
+     *
+     * @param {string} zoneId The ID of the AWS hosted zone.
+     * @param {string} hostName The hostname of the host for which to retrieve records (should have trailing dot).
+     * @returns {object} An object containing the DNS data for the host and a string containing error information.
+     */
+    async getResourceRecordSetForHost(zoneId, hostName) {
+        log.debug(`getResourceRecordsForZone: getting records for ${hostName} in ${zoneId}`);
+        let route53 = new AWS.Route53();
 
-//Update AWS Route53 based on new IP address
-var UpdateEntryInRoute53 = function () {
-    //Prepare comment to be used in API call to AWS
-    var paramsComment = null;
-    paramsComment = 'Updating public IP from ' + previousIP + ' to ' + currentIP + ' based on ISP change';
+        let params = {
+            HostedZoneId: zoneId,
+            StartRecordType: 'A',
+            StartRecordName: hostName,
+            MaxItems: '1'
+        };
+        let request = route53.listResourceRecordSets(params);
+        let data;
 
-    //Create params required by AWS-SDK for Route53
-    var params = {
-    HostedZoneId: ROUTE53_HOSTED_ZONE_ID,
-    ChangeBatch: {
-        Changes: [
-        {
-            Action: 'UPSERT',
-            ResourceRecordSet: {
-            Name: ROUTE53_DOMAIN,
-            ResourceRecords: [
-                {
-                Value: currentIP
-                }
-            ],
-            Type: ROUTE53_TYPE,
-            TTL: ROUTE53_TTL,
+        log.debug(`getResourceRecordsForZone: calling listResourceRecordSets`, params);
+        data = await request.promise();
+        log.debug(`getResourceRecordsForZone: result: `, data);
+
+        if (!data.ResourceRecordSets.length) {
+            // Host not found
+            return { data: null, err: 'No A records found for host' };
+        }
+
+        let record = data.ResourceRecordSets[0];
+
+        if (!(record.Name === hostName && record.Type === 'A')) {
+            // Host not found
+            return { data: null, err: 'No A records found for host' };
+        }
+
+        return { data: record, err: null };
+    }
+
+    /**
+     * Updates the AWS DNS record for the specified host.
+     * @param {string} zoneId The hosted zone ID.
+     * @param {string} hostName The host name to update.
+     * @param {string} newIp The new IP address.
+     * @param {string} ttl The new TTL.
+     * @param {string} batchComment The comment to be associated with the AWS batch update.
+     */
+    async updateDnsRecord(zoneId, hostName, newIp, ttl, batchComment) {
+        let route53 = new AWS.Route53();
+
+        var params = {
+            HostedZoneId: zoneId,
+            ChangeBatch: {
+                Changes: [
+                    {
+                        Action: 'UPSERT',
+                        ResourceRecordSet: {
+                            Name: hostName,
+                            ResourceRecords: [
+                                {
+                                    Value: newIp
+                                }
+                            ],
+                            Type: 'A',
+                            TTL: ttl
+                        }
+                    }
+                ],
+                Comment: batchComment
             }
-        }
-        ],
-        Comment: paramsComment
+        };
+
+        let request = route53.changeResourceRecordSets(params);
+        let response = await request.promise();
+
+        log.info(``, response);
     }
-    };
-
-    log.info('Initiating request to AWS Route53 (Method: changeResourceRecordSets)');
-
-    //Make the call to update Route53 record
-    route53.changeResourceRecordSets(params, function(err, data) {
-        if (err) {
-             log.error('Unable to update Route53!  Error data below:\n', err, err.stack);
-             SendErrorNotificationEmail('An error occurred that needs to be reviewed.  Here are logs that are immediately available.<br /><br />' + err.message + '<br /><br />'+ err.stack);
-        }
-        else {
-            // Successful response
-             log.info('Request successfully submitted to AWS Route53 to update', ROUTE53_DOMAIN, '(' , ROUTE53_TYPE, 'record) with new Public IP:', currentIP, '\nAWS Route 53 response:\n', data);
-
-        }
-    });
-
-};
-*/
+}
 
 module.exports = DynDns;
