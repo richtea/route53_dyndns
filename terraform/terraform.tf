@@ -42,14 +42,17 @@ locals {
 
 # This is global. For the second or subsequent stack in an account, you will need to run 
 # > terraform import aws_api_gateway_account.gateway aws_api_gateway_account
+# Alternatively you can delete this resource and configure the API gateway role manually
 resource "aws_api_gateway_account" "gateway" {
-  cloudwatch_role_arn = "${aws_iam_role.cloudwatchlog.arn}"
+  cloudwatch_role_arn = "${aws_iam_role.aws_gw_role.arn}"
 }
 
 # This is global. For the second or subsequent stack in an account, you will need to run 
-# > terraform import aws_iam_role.cloudwatchlog cloudwatchlog
-resource "aws_iam_role" "cloudwatchlog" {
-  name = "cloudwatchlog"
+# > terraform import aws_iam_role.aws_gw_role aws_gw_role
+# Alternatively you can delete this resource and configure the API gateway role manually
+resource "aws_iam_role" "aws_gw_role" {
+  name = "aws_gw_role"
+  description = "Allows API Gateway to call AWS resources on your behalf."
 
   assume_role_policy = <<EOF
 {
@@ -68,15 +71,16 @@ resource "aws_iam_role" "cloudwatchlog" {
 EOF
 }
 
-resource "aws_iam_policy_attachment" "cloudwatchlog" {
-  name       = "cloudwatchlog"
-  roles      = ["${aws_iam_role.cloudwatchlog.name}"]
+resource "aws_iam_policy_attachment" "aws_gw_role_cloudwatchlog" {
+  name       = "aws_gw_role_cloudwatchlog"
+  roles      = ["${aws_iam_role.aws_gw_role.name}"]
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
 }
 
 resource "aws_iam_role" "lambda_exec_role" {
   name = "${format(local.object_name_format, "lambda_exec_role")}"
   path = "/"
+  description = "Lambda execution role for ${local.lambda_function_name}"
 
   assume_role_policy = <<POLICY
 {
@@ -172,11 +176,6 @@ data "aws_iam_policy_document" "lambda_exec_policy_doc" {
     }
 }
 
-# resource "aws_iam_role_policy_attachment" "lambda_exec_role_CloudWatchFullAccess" {
-#   role       = "${aws_iam_role.lambda_exec_role.name}"
-#   policy_arn = "arn:aws:iam::aws:policy/CloudWatchFullAccess"
-# }
-
 resource "aws_iam_role_policy" "lambda_exec" {
   name_prefix = "${local.stack_fullname}-"
   role        = "${aws_iam_role.lambda_exec_role.id}"
@@ -223,9 +222,9 @@ resource "aws_api_gateway_rest_api" "rest_api" {
   body        = "${data.template_file.swagger_api_def.rendered}"
 }
 
-resource "aws_api_gateway_deployment" "rest_api_deploy_prod" {
+resource "aws_api_gateway_deployment" "rest_api_deployment" {
   rest_api_id = "${aws_api_gateway_rest_api.rest_api.id}"
-  stage_name  = "prod"
+  stage_name  = "live"
 
   variables = {
     "stack" = "${local.stack_name}"
@@ -236,13 +235,13 @@ resource "aws_api_gateway_deployment" "rest_api_deploy_prod" {
 }
 
 output "rest_api_base_url" {
-  value = "${aws_api_gateway_deployment.rest_api_deploy_prod.invoke_url}"
+  value = "${aws_api_gateway_deployment.rest_api_deployment.invoke_url}"
 }
 
 # Enable logging for all API gateway methods
-resource "aws_api_gateway_method_settings" "api_gateway_settings_prod" {
+resource "aws_api_gateway_method_settings" "api_gateway_settings" {
   rest_api_id = "${aws_api_gateway_rest_api.rest_api.id}"
-  stage_name  = "${aws_api_gateway_deployment.rest_api_deploy_prod.stage_name}"
+  stage_name  = "${aws_api_gateway_deployment.rest_api_deployment.stage_name}"
   method_path = "*/*"
 
   settings {
