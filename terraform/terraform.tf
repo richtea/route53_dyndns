@@ -6,15 +6,6 @@ provider "aws" {
   region = "${var.region}"
 }
 
-variable "lambda_log_level" {
-  # Allowed values:
-  # - debug
-  # - info
-  # - warn
-  # - error
-  default = "info"
-}
-
 variable "gateway_log_level" {
   # Allowed values:
   # - OFF
@@ -23,17 +14,30 @@ variable "gateway_log_level" {
   default = "INFO"
 }
 
+variable "lambda_log_debug" {
+  default = "false"
+}
+
 variable "gateway_data_trace_enabled" {
   default = false
 }
 
+data "aws_caller_identity" "current" {}
+
+
 locals {
-  app_name           = "bookings"
-  account_id         = "${data.aws_caller_identity.current.account_id}"
-  stack_name         = "${local.app_name}_${terraform.workspace}"
-  object_name_prefix = "${local.stack_name}_"
-  object_name_format = "${local.object_name_prefix}%s"
-  api_name           = "${format(local.object_name_format, "api")}"
+  app_name              = "dyndns"
+  account_id            = "${data.aws_caller_identity.current.account_id}"
+  stack_name            = "${terraform.workspace}"
+  stack_fullname        = "${local.app_name}_${local.stack_name}"
+  object_name_prefix    = "${local.stack_fullname}_"
+  object_name_format    = "${local.object_name_prefix}%s"
+  api_name              = "${format(local.object_name_format, "api")}"
+  api_description       = "DynDNS2 API for AWS Route53"
+  lambda_zip_file       = "zip/dyndns_lambda.zip"
+  lambda_function_name  = "${format(local.object_name_format, "api_lambda")}"
+  ssm_param_username    = "/${local.app_name}/${local.stack_name}/username"
+  ssm_param_password    = "/${local.app_name}/${local.stack_name}/password"
 }
 
 # This is global. For the second or subsequent stack in an account, you will need to run 
@@ -64,10 +68,14 @@ resource "aws_iam_role" "cloudwatchlog" {
 EOF
 }
 
-data "aws_caller_identity" "current" {}
+resource "aws_iam_policy_attachment" "cloudwatchlog" {
+  name       = "cloudwatchlog"
+  roles      = ["${aws_iam_role.cloudwatchlog.name}"]
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+}
 
-resource "aws_iam_role" "LambdaBookings_role" {
-  name = "${format(local.object_name_format, "LambdaBookings_role")}"
+resource "aws_iam_role" "lambda_exec_role" {
+  name = "${format(local.object_name_format, "lambda_exec_role")}"
   path = "/"
 
   assume_role_policy = <<POLICY
@@ -86,75 +94,108 @@ resource "aws_iam_role" "LambdaBookings_role" {
 POLICY
 }
 
-resource "aws_iam_role_policy_attachment" "LambdaBookings_role_AmazonDynamoDBFullAccess" {
-  role       = "${aws_iam_role.LambdaBookings_role.name}"
-  policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
-}
+# This is the policy for the lambda execution role, which controls what actions 
+# the lambda can perform
+data "aws_iam_policy_document" "lambda_exec_policy_doc" {
 
-resource "aws_iam_role_policy_attachment" "LambdaBookings_role_CloudWatchFullAccess" {
-  role       = "${aws_iam_role.LambdaBookings_role.name}"
-  policy_arn = "arn:aws:iam::aws:policy/CloudWatchFullAccess"
-}
-
-resource "aws_iam_role_policy" "ssm_read" {
-  name = "ssm_read"
-  role = "${aws_iam_role.LambdaBookings_role.id}"
-
-  policy = <<POLICY
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-          "ssm:DescribeParameters"
-      ],
-      "Resource": "*"
-    },
-    {
-        "Effect": "Allow",
-        "Action": [
-            "ssm:GetParameters"
-        ],
-        "Resource": "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${local.stack_name}/*"
+    # Allow access to read/modify Route53
+    statement {
+      actions = [
+        "route53:GetHostedZone",
+        "route53:ChangeResourceRecordSets",
+        "route53:ListResourceRecordSets",
+        "route53:GetHostedZoneLimit"
+      ]
+      resources = [
+        "arn:aws:route53:::hostedzone/*"
+      ]
     }
-  ]
-}
-POLICY
+
+    statement {
+      actions = [
+        "route53:ListHostedZones",
+        "route53:GetHostedZoneCount",
+        "route53:ListHostedZonesByName"
+      ]
+      resources = [
+        "*"
+      ]
+    }
+
+    # Cloudwatch access
+    statement {
+      actions = [
+        "logs:CreateLogGroup"
+      ]
+      resources = [
+        "arn:aws:logs:${var.region}:${local.account_id}:*"
+      ]
+    }
+
+    statement {
+      actions = [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ]
+      resources = [
+        "arn:aws:logs:${var.region}:${local.account_id}:log-group:/aws/lambda/${aws_lambda_function.api_lambda.function_name}:*"
+      ]
+    }
+
+    # SSM Parameters access
+    statement {
+      actions = [
+        "ssm:DescribeParameters"
+      ]
+      resources = [
+        "*"
+      ]
+    }
+
+    statement {
+      actions = [
+        "ssm:GetParameters"
+      ]
+      resources = [
+        "arn:aws:ssm:${var.region}:${local.account_id}:parameter/${local.app_name}/${local.stack_name}/*"
+      ]
+    }
+
+    # KMS access
+    statement {
+      actions = [
+        "kms:Decrypt"
+      ]
+      resources = [
+        "*"
+      ]
+    }
 }
 
-variable "environment_configs" {
-  type = "map"
-}
+# resource "aws_iam_role_policy_attachment" "lambda_exec_role_CloudWatchFullAccess" {
+#   role       = "${aws_iam_role.lambda_exec_role.name}"
+#   policy_arn = "arn:aws:iam::aws:policy/CloudWatchFullAccess"
+# }
 
-module "parameters" {
-  source  = "./ssm_parameter_map"
-  configs = "${var.environment_configs}"
-  prefix  = "${local.stack_name}"
-
-  # kms_key_id = "${aws_kms_key.LambdaBookings_key.key_id}"
-}
-
-resource "aws_iam_policy_attachment" "cloudwatchlog" {
-  name       = "cloudwatchlog"
-  roles      = ["${aws_iam_role.cloudwatchlog.name}"]
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+resource "aws_iam_role_policy" "lambda_exec" {
+  name_prefix = "${local.stack_fullname}-"
+  role        = "${aws_iam_role.lambda_exec_role.id}"
+  policy      = "${data.aws_iam_policy_document.lambda_exec_policy_doc.json}"
 }
 
 resource "aws_lambda_function" "api_lambda" {
-  filename         = "package/api_lambda.zip"
-  function_name    = "${format(local.object_name_format, "api_lambda")}"
-  role             = "${aws_iam_role.LambdaBookings_role.arn}"
+  filename         = "${local.lambda_zip_file}"
+  function_name    = "${local.lambda_function_name}"
+  role             = "${aws_iam_role.lambda_exec_role.arn}"
   handler          = "index.handler"
-  source_code_hash = "${base64sha256(file("package/api_lambda.zip"))}"
-  runtime          = "nodejs6.10"
+  source_code_hash = "${base64sha256(file("${local.lambda_zip_file}"))}"
+  runtime          = "nodejs8.10"
   timeout          = 15
   publish          = true
 
   environment {
     variables = {
       stack     = "${local.stack_name}"
-      log_level = "${var.lambda_log_level}"
     }
   }
 }
@@ -164,11 +205,11 @@ resource "aws_lambda_permission" "allow_api_gateway" {
   statement_id  = "AllowExecutionFromApiGateway"
   action        = "lambda:InvokeFunction"
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.region}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.rest_api.id}/*/*/*"
+  source_arn    = "arn:aws:execute-api:${var.region}:${local.account_id}:${aws_api_gateway_rest_api.rest_api.id}/*/*/*"
 }
 
 data "template_file" "swagger_api_def" {
-  template = "${file("${path.module}/api.json")}"
+  template = "${file("${path.module}/../doc/api-swagger-template.yaml")}"
 
   vars {
     api_name   = "${local.api_name}"
@@ -178,7 +219,7 @@ data "template_file" "swagger_api_def" {
 
 resource "aws_api_gateway_rest_api" "rest_api" {
   name        = "${local.api_name}"
-  description = "This is my API for demonstration purposes"
+  description = "${local.api_description}"
   body        = "${data.template_file.swagger_api_def.rendered}"
 }
 
@@ -188,6 +229,9 @@ resource "aws_api_gateway_deployment" "rest_api_deploy_prod" {
 
   variables = {
     "stack" = "${local.stack_name}"
+    "log_debug" = "${var.lambda_log_debug}"
+    "username_param" = "${local.ssm_param_username}"
+    "password_param" = "${local.ssm_param_password}"
   }
 }
 
@@ -207,3 +251,11 @@ resource "aws_api_gateway_method_settings" "api_gateway_settings_prod" {
     data_trace_enabled = "${var.gateway_data_trace_enabled}"
   }
 }
+
+output "username_param" {
+  value = "${local.ssm_param_username}"
+}
+output "password_param" {
+  value = "${local.ssm_param_password}"
+}
+

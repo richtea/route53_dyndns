@@ -139,7 +139,7 @@ task.description = 'Builds the distribution files';
 gulp.task('fullbuild', gulp.series('clean', 'build'));
 
 function deploy(done) {
-    let cmd = './tf.sh -y -c apply -s ' + argv.stack;
+    let cmd = './terraform/tf.sh -y -c apply -s ' + argv.stack;
     if (!argv.whatif) {
         let p = cp.exec(cmd);
         p.stdout.pipe(process.stdout);
@@ -153,8 +153,24 @@ function deploy(done) {
 }
 deploy.description = 'Deploys to an AWS stack by using Terraform';
 
+function planDeploy(done) {
+    let cmd = './terraform/tf.sh -y -c plan -s ' + argv.stack;
+    if (!argv.whatif) {
+        let p = cp.exec(cmd);
+        p.stdout.pipe(process.stdout);
+        p.stderr.pipe(process.stderr);
+        return p;
+    } else {
+        // eslint-disable-next-line no-console
+        console.log(`whatif: ${cmd}`);
+        done();
+    }
+}
+planDeploy.description = 'Runs Terraform plan';
+
 gulp.task('test', gulp.series('test:unit'));
 gulp.task('deploy', deploy);
+gulp.task('deploy:plan', planDeploy);
 
 /*
  * Define default task that can be called by just running `gulp` from cli

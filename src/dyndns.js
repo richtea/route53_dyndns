@@ -215,7 +215,7 @@ class DynDns {
         let request = route53.changeResourceRecordSets(params);
         let response = await request.promise();
 
-        log.info(``, response);
+        log.debug(`updateDnsRecord: response received from route53.changeResourceRecordSets`, response);
     }
 }
 

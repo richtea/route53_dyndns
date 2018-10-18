@@ -10,11 +10,13 @@ const Authorizer = require('./authorizer');
 
 async function handler(event, context, callback) {
     try {
-        if (utils.idx(event, _ => _.stageVariables.LogDebug)) {
+        let logDebug = utils.idx(event, _ => _.stageVariables.log_debug);
+        if (logDebug.toLowerCase() === 'true') {
             log.options.debug = true;
             log.debug('Debug log enabled');
         }
 
+        // See initializeDependencies() for explanation
         const deps = await module.exports.deps(event);
 
         const response = await handleEvent(event, deps);
@@ -53,15 +55,15 @@ async function initializeDependencies(event) {
     let dd = new DynDns(ddconfig);
     let ddinit = dd.init();
 
-    let usernameParm = utils.idx(event, _ => _.stageVariables.UsernameParm) || 'dyndns-username';
-    let passwordParm = utils.idx(event, _ => _.stageVariables.PasswordParm) || 'dyndns-password';
-    log.debug(`initializeDependencies: using SSM parameters (${usernameParm}) for username and (${passwordParm}) for password`);
+    let usernameParam = utils.idx(event, _ => _.stageVariables.username_param) || 'dyndns-username';
+    let passwordParam = utils.idx(event, _ => _.stageVariables.password_param) || 'dyndns-password';
+    log.debug(`initializeDependencies: using SSM parameters '${usernameParam}' for username and '${passwordParam}' for password`);
 
-    let getParms = getSsmParams(usernameParm, passwordParm);
+    let getParams = getSsmParams(usernameParam, passwordParam);
 
-    let [, parms] = await Promise.all([ddinit, getParms]);
+    let [, params] = await Promise.all([ddinit, getParams]);
 
-    let azconfig = { username: parms[usernameParm], password: parms[passwordParm] };
+    let azconfig = { username: params[usernameParam], password: params[passwordParam] };
     let az = new Authorizer(azconfig);
 
     return { DynDns: dd, Authorizer: az };
@@ -118,11 +120,13 @@ function getEventParams(event) {
 async function handleEvent(event, deps) {
     // If no auth header, throw
     if (!utils.idx(event, _ => _.headers.Authorization)) {
+        log.info('handleEvent: no Authorization header present');
         throw createError(401, 'Unauthorized');
     }
 
     // Authorize user from header
     if (!deps.Authorizer.authorize(event)) {
+        log.info('handleEvent: invalid credentials');
         throw createError(403, 'Forbidden');
     }
 
@@ -136,6 +140,7 @@ async function handleEvent(event, deps) {
         if (/(?=^.{4,253}$)(^((?!-)[a-zA-Z0-9-]{0,62}[a-zA-Z0-9]\.)+[a-zA-Z]{2,63}$)/.test(host)) {
             result = await deps.DynDns.update(host, myip);
         } else {
+            log.warn(`handleEvent: invalid host name '${host}'`);
             result = DynDns.UPDATE_RESPONSES.NOTFQDN;
         }
 

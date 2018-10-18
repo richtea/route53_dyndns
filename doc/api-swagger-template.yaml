@@ -1,0 +1,43 @@
+---
+swagger: "2.0"
+info:
+  version: "2018-09-11T14:27:04Z"
+  title: "${api_name}"
+schemes:
+- "https"
+paths:
+  /nic/update:
+    get:
+      produces:
+      - "application/json"
+      parameters:
+      - name: "hostname"
+        in: "query"
+        required: true
+        type: "string"
+      - name: "myip"
+        in: "query"
+        required: true
+        type: "string"
+      - name: "Authorization"
+        in: "header"
+        required: false
+        type: "string"
+      responses:
+        200:
+          description: "200 response"
+          schema:
+            $ref: "#/definitions/Empty"
+      x-amazon-apigateway-integration:
+        uri: "${lambda_uri}"
+        responses:
+          default:
+            statusCode: "200"
+        passthroughBehavior: "when_no_match"
+        httpMethod: "POST"
+        contentHandling: "CONVERT_TO_TEXT"
+        type: "aws_proxy"
+definitions:
+  Empty:
+    type: "object"
+    title: "Empty Schema"
