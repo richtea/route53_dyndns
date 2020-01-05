@@ -22,6 +22,9 @@ const defaultEvent = {
     },
     headers: {
         Authorization: 'Basic xyzzy'
+    },
+    stageVariables: {
+        log_debug: 'true'
     }
 };
 

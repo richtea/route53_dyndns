@@ -139,7 +139,7 @@ task.description = 'Builds the distribution files';
 gulp.task('fullbuild', gulp.series('clean', 'build'));
 
 function deploy(done) {
-    let cmd = './terraform/tf.sh -y -c apply -s ' + argv.stack;
+    let cmd = './tf.sh -y -c apply -s ' + argv.stack;
     if (!argv.whatif) {
         let p = cp.exec(cmd);
         p.stdout.pipe(process.stdout);
@@ -154,7 +154,7 @@ function deploy(done) {
 deploy.description = 'Deploys to an AWS stack by using Terraform';
 
 function planDeploy(done) {
-    let cmd = './terraform/tf.sh -y -c plan -s ' + argv.stack;
+    let cmd = './tf.sh -y -c plan -s ' + argv.stack;
     if (!argv.whatif) {
         let p = cp.exec(cmd);
         p.stdout.pipe(process.stdout);

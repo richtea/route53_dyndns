@@ -29,8 +29,8 @@ gulp deploy
 After deploying the service, you will also need to set up some values in the [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html). These parameters hold the username and password that secure your DDNS service. You will need these values to configure the DDNS client.
 
 ```bash
-aws ssm put-parameter --name /dyndns/default/username --value mydnsuser --type SecureString
-aws ssm put-parameter --name /dyndns/default/password --value password --type SecureString
+aws ssm put-parameter --name /dyndns/<stage-name>/username --type SecureString --value <my-dns-username>
+aws ssm put-parameter --name /dyndns/<stage-name>/password --type SecureString --value <my-dns-password>
 ```
 
 (The parameter names are output when you run `gulp deploy`).

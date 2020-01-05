@@ -36,4 +36,4 @@ fi
 echo "Using workspace ${stack}"
 export TF_WORKSPACE=${stack}
 
-eval "terraform $command -var-file=${scriptdir}/${stack}.tfvars ${input} terraform/"
+eval "terraform $command -var-file=${scriptdir}/terraform/${stack}.tfvars ${input}"
