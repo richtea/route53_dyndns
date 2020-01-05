@@ -223,7 +223,7 @@ resource "aws_api_gateway_rest_api" "rest_api" {
   description = local.api_description
   body        = data.template_file.swagger_api_def.rendered
 }
-https://d3f9vvr1x9.execute-api.eu-west-1.amazonaws.com/live
+
 resource "aws_api_gateway_deployment" "rest_api_deployment" {
   rest_api_id = aws_api_gateway_rest_api.rest_api.id
   stage_name  = "live"
