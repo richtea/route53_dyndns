@@ -11,7 +11,7 @@ const Authorizer = require('./authorizer');
 async function handler(event, context, callback) {
     try {
         let logDebug = utils.idx(event, _ => _.stageVariables.log_debug);
-        if (logDebug.toLowerCase() === 'true') {
+        if (logDebug && logDebug.toLowerCase() === 'true') {
             log.options.debug = true;
             log.debug('Debug log enabled');
         }

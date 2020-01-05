@@ -10,5 +10,6 @@
         "zip": true,
         "dist": true
     },
-    "git.ignoreLimitWarning": true
+    "git.ignoreLimitWarning": true,
+    "debug.node.autoAttach": "on"
 }
