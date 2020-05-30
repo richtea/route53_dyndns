@@ -17,6 +17,10 @@
     "type": "git",
     "url": "https://github.com/richtea/route53_dyndns"
   },
+  "homepage": "https://github.com/richtea/route53_dyndns",
+  "bugs": {
+    "url": "https://github.com/richtea/route53_dyndns/issues"
+  },
   "dependencies": {
     "aws-sdk": "^2.313.0",
     "http-errors": "^1.7.1",
