@@ -2,7 +2,7 @@
 
 const gulp = require('gulp');
 const del = require('del');
-const install = require('gulp-install');
+const install = require('gulp-reinstall');
 const zip = require('gulp-zip');
 const changed = require('gulp-changed');
 const cp = require('child_process');
