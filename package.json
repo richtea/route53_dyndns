@@ -22,7 +22,7 @@
     "url": "https://github.com/richtea/route53_dyndns/issues"
   },
   "dependencies": {
-    "aws-sdk": "^2.313.0",
+    "aws-sdk": "^2.814.0",
     "http-errors": "^1.8.0",
     "ip-address": "^5.8.9",
     "lambda-log": "^2.4.0"
