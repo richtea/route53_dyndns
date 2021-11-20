@@ -2,8 +2,6 @@
 
 const AWS = require('aws-sdk');
 
-var ssm = new AWS.SSM();
-
 /**
  * Gets parameters from the AWS Parameter Store.
  *
@@ -16,6 +14,7 @@ async function getParams(...names) {
         WithDecryption: true
     };
 
+    const ssm = new AWS.SSM();
     let req = ssm.getParameters(parms);
     let resp = await req.promise();
 

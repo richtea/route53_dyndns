@@ -2,6 +2,7 @@
 
 const test = require('tape-async');
 const log = require('lambda-log');
+const AWS = require('aws-sdk');
 
 const DynDns = require('./dyndns');
 const getSsmParams = require('./ssm-params');
@@ -17,11 +18,12 @@ log.on('log', listener);
 test('listHostedZones returns full list', async (t) => {
     let dyndns = new DynDns({ region: 'eu-west-1' });
     let zones = await dyndns.listHostedZones();
-    t.equal(zones.length, 12, 'Hosted zones count');
+    t.equal(zones.length, 14, 'Hosted zones count');
     t.end();
 });
 
 test('getSsmParams returns values', async (t) => {
+    AWS.config.update({ region: 'eu-west-1' });
     let parms = await getSsmParams('dyndns-username', 'dyndns-password');
     t.equal(parms['dyndns-username'], 'dnsuser', 'Username');
     t.end();
