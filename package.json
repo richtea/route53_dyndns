@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "aws-sdk": "^2.1026.0",
-    "http-errors": "^1.8.0",
+    "http-errors": "^1.8.1",
     "ip-address": "^5.9.4",
     "lambda-log": "^2.4.0"
   },
