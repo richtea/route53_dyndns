@@ -1,37 +1,38 @@
 'use strict';
 
-const gulp = require('gulp');
-const del = require('del');
-const install = require('gulp-reinstall');
-const zip = require('gulp-zip');
-const changed = require('gulp-changed');
-const cp = require('child_process');
-const tape = require('gulp-tape');
-const plumber = require('gulp-plumber');
-const tapColorize = require('tap-colorize');
-const tapJson = require('tap-json');
+import gulp from 'gulp';
+import { deleteAsync as del } from 'del';
+import install from 'gulp-reinstall';
+import zip from 'gulp-zip';
+import changed from 'gulp-changed';
+import cp from 'child_process';
+import tape from 'gulp-tape';
+import plumber from 'gulp-plumber';
+import tapColorize from 'tap-colorize';
+import tapJson from 'tap-json';
 
 // Support command-line arg that specifies which stack to deploy, for the deploy task
-const argv = require('yargs')
-    .option(
-        {
-            's': {
-                alias: 'stack',
-                type: 'string',
-                nargs: 1,
-                default: 'default'
-            },
-            'w': {
-                alias: 'whatif',
-                type: 'boolean',
-                default: 'false'
-            },
-            'nocolor': {
-                type: 'boolean',
-                nargs: 0,
-                default: false
-            }
-        })
+import yargs from 'yargs';
+
+const argv = yargs.option(
+    {
+        's': {
+            alias: 'stack',
+            type: 'string',
+            nargs: 1,
+            default: 'default'
+        },
+        'w': {
+            alias: 'whatif',
+            type: 'boolean',
+            default: 'false'
+        },
+        'nocolor': {
+            type: 'boolean',
+            nargs: 0,
+            default: false
+        }
+    })
     .argv;
 
 var paths = {
