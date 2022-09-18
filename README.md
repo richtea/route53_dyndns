@@ -2,7 +2,7 @@
 
 `route53-dyndns` is a Dynamic DNS (DDNS) updater for [Route53](https://aws.amazon.com/route53/).
 
-It provides a [dyndns2](http://www.gosoftware.com.au/support/dyndns2_protocol.pdf)-compatible interface to enable your preferred client to update your DNS settings in Route53.
+It provides a [dyndns2](https://help.dyn.com/remote-access-api/)-compatible interface to enable your preferred client to update your DNS settings in Route53.
 
 For the technically-minded - and if you're running this, you probably are! - `route53_dyndns` consists of an [Amazon API Gateway](https://aws.amazon.com/api-gateway/) API that proxies an [AWS Lambda](https://aws.amazon.com/lambda/) function that updates Route53 settings.
 
@@ -48,3 +48,11 @@ To specify a deployment stage, use the `-s <stagename>` switch when calling `gul
 | username_param | The name of the SSM param that holds the username used to secure the DDNS service.|
 | password_param | The name of the SSM param that holds the password used to secure the DDNS service.|
 | log_debug | A boolean value that indicates whether to log debug information. |
+
+## Testing
+
+You can test manually by calling the API directly, e.g.:
+
+```text
+https://mydnsuser:mypassword@my-lambda.execute-api.eu-west-1.amazonaws.com/live/nic/update?hostname=hostname.example.com&myip=1.2.3.4
+```
