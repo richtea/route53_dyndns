@@ -18,7 +18,7 @@ log.on('log', listener);
 test('listHostedZones returns full list', async (t) => {
     let dyndns = new DynDns({ region: 'eu-west-1' });
     let zones = await dyndns.listHostedZones();
-    t.equal(zones.length, 14, 'Hosted zones count');
+    t.equal(zones.length, 15, 'Hosted zones count');
     t.end();
 });
 
@@ -69,7 +69,7 @@ test('update valid host', async (t) => {
     let dyndns = new DynDns({ region: 'eu-west-1' });
     await dyndns.init();
 
-    let res = await dyndns.update('hanuman.tebb.io.', '192.168.2.9');
+    let res = await dyndns.update('dyndnstest.tebbdev.net.', '192.168.2.9');
     t.equal(res, `${DynDns.UPDATE_RESPONSES.NOCHG} 192.168.2.9`, 'Result');
     t.end();
 });
