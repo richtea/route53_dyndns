@@ -23,9 +23,9 @@
   },
   "dependencies": {
     "aws-sdk": "^2.963.0",
-    "http-errors": "^1.8.0",
-    "ip-address": "^5.9.4",
-    "lambda-log": "^2.4.0"
+    "http-errors": "^2.0.0",
+    "ip-address": "^8.1.0",
+    "lambda-log": "^3.1.0"
   },
   "devDependencies": {
     "del": "^3.0.0",

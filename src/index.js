@@ -85,10 +85,11 @@ function getEventParams(event) {
     if (!myip) {
         log.info('getEventParams: no \'myip\' parameter supplied');
     } else {
-        var address = new Address4(myip);
-        if (!address.isValid) {
+        if (!Address4.isValid(myip)) {
             log.warn(`getEventParams: 'myip' parameter value '${myip}' is badly-formed, ignoring it`);
             myip = undefined;
+        } else {
+            log.info(`getEventParams: using provided source IP ${myip}`);
         }
     }
 
@@ -97,7 +98,7 @@ function getEventParams(event) {
         if (!myip) {
             throw createError(400, 'fatal Unable to determine IP address');
         }
-        log.info(`getEventParams: using source IP ${myip}`);
+        log.info(`getEventParams: using derived source IP ${myip}`);
     }
 
     let hostnames = hostname.split(',');
