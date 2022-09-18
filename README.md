@@ -23,6 +23,7 @@ Once you have set up your AWS environment as above, you can run the following co
 ```bash
 npm install
 terraform init
+gulp build
 gulp deploy
 ```
 
