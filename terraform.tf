@@ -190,7 +190,7 @@ resource "aws_lambda_function" "api_lambda" {
   role             = aws_iam_role.lambda_exec_role.arn
   handler          = "index.handler"
   source_code_hash = filebase64sha256(local.lambda_zip_file)
-  runtime          = "nodejs12.x"
+  runtime          = "nodejs16.x"
   timeout          = 15
   publish          = true
 
